@@ -37,9 +37,9 @@ Respond with ONLY a JSON object, no surrounding text, in exactly this format:
         'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01'
       },
-      body: JSON.stringify({
+    body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 4096,
+        max_tokens: 8192,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{ role: 'user', content: prompt }]
       })
@@ -47,6 +47,9 @@ Respond with ONLY a JSON object, no surrounding text, in exactly this format:
 
     const data = await response.json();
     const textBlocks = data.content.filter(block => block.type === 'text');
+    if (textBlocks.length === 0) {
+      return res.status(500).json({ error: 'No text response from Claude', stopReason: data.stop_reason, raw: data });
+    }
     const text = textBlocks[textBlocks.length - 1].text;
     const clean = text.replace(/```json|```/g, '').trim();
     const probabilities = JSON.parse(clean);
