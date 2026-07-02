@@ -8,11 +8,7 @@ export default async function handler(req, res) {
       `${m.home} (position ${m.homePos}, ${m.homePts}pts, GD ${m.homeGd}) vs ${m.away} (position ${m.awayPos}, ${m.awayPts}pts, GD ${m.awayGd})`
     ).join('\n');
 
-    const today = new Date().toISOString().split('T')[0];
-
-    const prompt = `You are a football analyst predicting realistic scorelines in the English Premier League. Today's date is ${today}.
-
-Before predicting, search the web for the latest news on the teams below: current form (last 5 games), injuries or suspensions, and head-to-head history. Use this together with the table stats provided.
+    const prompt = `You are a football analyst predicting realistic scorelines in the English Premier League. Base your predictions on the table stats below and your knowledge of the teams' typical strength, style, and squad quality.
 
 Matches to predict:
 ${matchList}
@@ -29,16 +25,17 @@ Respond with ONLY a JSON object, no surrounding text, in exactly this format:
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 2048,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        max_tokens: 1024,
         messages: [{ role: 'user', content: prompt }]
       })
     });
 
     const data = await response.json();
-    const textBlocks = data.content.filter(block => block.type === 'text');
-    const text = textBlocks[textBlocks.length - 1].text;
-    const clean = text.replace(/```json|```/g, '').trim();
+    const textBlock = data.content.find(block => block.type === 'text');
+    if (!textBlock) {
+      return res.status(500).json({ error: 'No text response from Claude', raw: data });
+    }
+    const clean = textBlock.text.replace(/```json|```/g, '').trim();
     const predictions = JSON.parse(clean);
 
     res.status(200).json(predictions);
