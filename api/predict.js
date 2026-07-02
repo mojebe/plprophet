@@ -5,13 +5,21 @@ export default async function handler(req, res) {
   try {
     const { matches } = req.body;
     const matchList = matches.map(m =>
-      `${m.home} (plats ${m.homePos}, ${m.homePts}p, målskillnad ${m.homeGd}) vs ${m.away} (plats ${m.awayPos}, ${m.awayPts}p, målskillnad ${m.awayGd})`
+      `${m.home} (position ${m.homePos}, ${m.homePts}pts, GD ${m.homeGd}) vs ${m.away} (position ${m.awayPos}, ${m.awayPts}pts, GD ${m.awayGd})`
     ).join('\n');
-    const prompt = `Du är en fotbollsexpert som ska förutspå realistiska resultat i engelska Premier League. Basera dig på lagens tabellplacering, poäng och målskillnad nedan, samt din kunskap om lagens aktuella form, spelartrupp, skador och inbördes möten.
-Matcher att förutspå:
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const prompt = `You are a football analyst predicting realistic scorelines in the English Premier League. Today's date is ${today}.
+
+Before predicting, search the web for the latest news on the teams below: current form (last 5 games), injuries or suspensions, and head-to-head history. Use this together with the table stats provided.
+
+Matches to predict:
 ${matchList}
-Svara ENDAST med ett JSON-objekt, ingen text runtomkring, i exakt detta format:
-{"predictions": [{"home": "lagnamn", "away": "lagnamn", "homeScore": 0, "awayScore": 0}]}`;
+
+Respond with ONLY a JSON object, no surrounding text, in exactly this format:
+{"predictions": [{"home": "team name", "away": "team name", "homeScore": 0, "awayScore": 0}]}`;
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -21,17 +29,20 @@ Svara ENDAST med ett JSON-objekt, ingen text runtomkring, i exakt detta format:
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 1024,
+        max_tokens: 2048,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{ role: 'user', content: prompt }]
       })
     });
+
     const data = await response.json();
-    const textBlock = data.content.find(block => block.type === 'text');
-    const text = textBlock.text;
+    const textBlocks = data.content.filter(block => block.type === 'text');
+    const text = textBlocks[textBlocks.length - 1].text;
     const clean = text.replace(/```json|```/g, '').trim();
     const predictions = JSON.parse(clean);
+
     res.status(200).json(predictions);
   } catch (err) {
-    res.status(500).json({ error: 'Kunde inte hämta förutsägelser', details: err.message });
+    res.status(500).json({ error: 'Could not get predictions', details: err.message });
   }
 }
