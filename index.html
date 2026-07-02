@@ -18,6 +18,7 @@
     --accent: #4B2E83;
     --accent-soft: #EFEAF8;
     --gold: #B8862E;
+    --danger: #9C3B3B;
   }
   *{ box-sizing:border-box; margin:0; padding:0; }
   body{
@@ -66,6 +67,7 @@
   }
   table{
     width:100%;
+    table-layout:fixed;
     border-collapse:collapse;
     background:var(--surface);
     border:1px solid var(--border);
@@ -79,10 +81,13 @@
     color:var(--text-muted);
     font-weight:600;
     text-align:right;
-    padding:10px 8px;
+    padding:10px 4px;
     border-bottom:1px solid var(--border);
   }
   thead th:first-child, thead th:nth-child(2){ text-align:left; }
+  th.rank, td.rank{ width:20px; }
+  th.pts, td.pts{ width:32px; }
+  th.prob, td.prob{ width:32px; font-size:11px; }
   tbody td{
     padding:10px 8px;
     font-size:14px;
@@ -99,11 +104,17 @@
   td.team{
     text-align:left;
     font-weight:500;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
   }
   td.pts{
     font-weight:600;
     font-variant-numeric:tabular-nums;
   }
+  .prob-title{ color:var(--gold); }
+  .prob-cl{ color:var(--accent); }
+  .prob-rel{ color:var(--danger); }
   tbody td.mp, tbody td.gd{
     color:var(--text-muted);
     font-variant-numeric:tabular-nums;
@@ -234,11 +245,14 @@
   <table>
     <thead>
       <tr>
-        <th>#</th>
+        <th class="rank">#</th>
         <th>Team</th>
         <th class="mp">P</th>
         <th class="gd">GD</th>
-        <th>Pts</th>
+        <th class="prob" title="Chance of winning the title">Ti</th>
+        <th class="prob" title="Chance of Champions League qualification">CL</th>
+        <th class="prob" title="Chance of relegation">Re</th>
+        <th class="pts">Pts</th>
       </tr>
     </thead>
     <tbody id="standings-body">
@@ -246,7 +260,7 @@
   </table>
 
   <div class="note">
-    Table is fetched live from football-data.org.
+    Table is fetched live from football-data.org. Ti / CL / Re show the Prophet's estimated chance (%) of winning the title, qualifying for the Champions League, or being relegated — updated every few hours.
   </div>
 
   <div class="section-title" style="margin-top:32px;">Upcoming matches</div>
@@ -268,6 +282,7 @@
 <script>
   let standingsData = [];
   let fixturesData = [];
+  let probabilitiesData = {};
 
   function renderStandings(table) {
     const tbody = document.getElementById("standings-body");
@@ -278,11 +293,16 @@
       if (rank <= 4) tr.classList.add("zone-top");
       if (rank >= table.length - 2) tr.classList.add("zone-relegation");
       const gd = row.goalDifference;
+      const prob = probabilitiesData[row.team.name];
+      const fmt = (n) => n === undefined ? "–" : (n < 1 && n > 0 ? "<1" : Math.round(n));
       tr.innerHTML = `
         <td class="rank">${rank}</td>
         <td class="team">${row.team.name}</td>
         <td class="mp">${row.playedGames}</td>
         <td class="gd">${gd > 0 ? "+" + gd : gd}</td>
+        <td class="prob prob-title">${fmt(prob?.title)}</td>
+        <td class="prob prob-cl">${fmt(prob?.cl)}</td>
+        <td class="prob prob-rel">${fmt(prob?.relegation)}</td>
         <td class="pts">${row.points}</td>
       `;
       tbody.appendChild(tr);
@@ -365,6 +385,18 @@
     simulateTable();
   }
 
+  async function loadProbabilities() {
+    try {
+      const res = await fetch("/api/probabilities");
+      const data = await res.json();
+      probabilitiesData = {};
+      data.probabilities.forEach(p => { probabilitiesData[p.team] = p; });
+      renderStandings(standingsData);
+    } catch (err) {
+      // If this fails, the table just shows "–" in the probability columns.
+    }
+  }
+
   async function askProphet() {
     const btn = document.getElementById("prophet-btn");
     btn.textContent = "The Prophet is thinking...";
@@ -443,6 +475,7 @@
 
   loadStandings();
   loadFixtures();
+  loadProbabilities();
 </script>
 
 </body>
