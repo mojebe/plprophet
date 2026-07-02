@@ -27,9 +27,7 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing:antialiased;
   }
-  .heading{
-    font-family:"Space Grotesk", sans-serif;
-  }
+  .heading{ font-family:"Space Grotesk", sans-serif; }
   header{
     padding:20px 16px 16px;
     border-bottom:1px solid var(--border);
@@ -37,26 +35,11 @@
     align-items:center;
     justify-content:space-between;
   }
-  header .brand{
-    display:flex;
-    align-items:center;
-    gap:8px;
-  }
-  header .word{
-    font-size:20px;
-    font-weight:600;
-    letter-spacing:-0.02em;
-  }
+  header .brand{ display:flex; align-items:center; gap:8px; }
+  header .word{ font-size:20px; font-weight:600; letter-spacing:-0.02em; }
   header .word span{ color:var(--accent); }
-  header .season{
-    font-size:12px;
-    color:var(--text-muted);
-  }
-  main{
-    max-width:640px;
-    margin:0 auto;
-    padding:20px 12px 40px;
-  }
+  header .season{ font-size:12px; color:var(--text-muted); }
+  main{ max-width:640px; margin:0 auto; padding:20px 12px 40px; }
   .section-title{
     font-size:13px;
     font-weight:600;
@@ -85,7 +68,7 @@
     border-bottom:1px solid var(--border);
   }
   thead th:first-child, thead th:nth-child(2){ text-align:left; }
-  th.rank, td.rank{ width:20px; }
+  th.rank, td.rank{ width:20px; text-align:left; color:var(--text-muted); font-variant-numeric:tabular-nums; }
   th.pts, td.pts{ width:32px; }
   th.prob, td.prob{ width:32px; font-size:11px; }
   tbody td{
@@ -95,12 +78,6 @@
     border-bottom:1px solid var(--border);
   }
   tbody tr:last-child td{ border-bottom:none; }
-  td.rank{
-    text-align:left;
-    color:var(--text-muted);
-    font-variant-numeric:tabular-nums;
-    width:24px;
-  }
   td.team{
     text-align:left;
     font-weight:500;
@@ -108,26 +85,21 @@
     text-overflow:ellipsis;
     white-space:nowrap;
   }
-  td.pts{
-    font-weight:600;
-    font-variant-numeric:tabular-nums;
-  }
+  td.pts{ font-weight:600; font-variant-numeric:tabular-nums; }
   .prob-title{ color:var(--gold); }
   .prob-cl{ color:var(--accent); }
   .prob-rel{ color:var(--danger); }
- tbody td.mp, tbody td.gd,
-  thead th.mp, thead th.gd{
+
+  /* Played-games and goal-difference columns: hidden on narrow screens, shown from 480px up. */
+  th.mp, td.mp, th.gd, td.gd{
     display:none;
-  }
-  tbody td.mp, tbody td.gd{
     color:var(--text-muted);
     font-variant-numeric:tabular-nums;
   }
   @media (min-width:480px){
-    tbody td.mp, tbody td.gd,
-    thead th.mp, thead th.gd{ display:table-cell; }
+    th.mp, td.mp, th.gd, td.gd{ display:table-cell; }
   }
-  
+
   tr.zone-top td.team{ border-left:3px solid var(--accent); padding-left:5px; }
   tr.zone-relegation td.team{ border-left:3px solid var(--text-muted); padding-left:5px; }
   .note{
@@ -150,24 +122,9 @@
     justify-content:space-between;
     gap:10px;
   }
-  .match .date{
-    font-size:11px;
-    color:var(--text-muted);
-    width:100%;
-    margin-bottom:6px;
-  }
-  .match .teams{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    width:100%;
-    gap:8px;
-  }
-  .match .team-name{
-    font-size:14px;
-    font-weight:500;
-    flex:1;
-  }
+  .match .date{ font-size:11px; color:var(--text-muted); width:100%; margin-bottom:6px; }
+  .match .teams{ display:flex; align-items:center; justify-content:space-between; width:100%; gap:8px; }
+  .match .team-name{ font-size:14px; font-weight:500; flex:1; }
   .match .team-name.away{ text-align:right; }
   .score-input{
     width:32px;
@@ -178,10 +135,7 @@
     font-size:14px;
     font-variant-numeric:tabular-nums;
   }
-  .score-input:focus{
-    outline:none;
-    border-color:var(--accent);
-  }
+  .score-input:focus{ outline:none; border-color:var(--accent); }
   .match-prophet-btn{
     width:30px;
     height:30px;
@@ -204,27 +158,11 @@
     font-weight:500;
     cursor:pointer;
   }
-  .btn-primary{
-    background:var(--accent);
-    color:#fff;
-    border-color:var(--accent);
-  }
-  .btn-secondary{
-    color:var(--text-muted);
-  }
-  footer{
-    max-width:640px;
-    margin:0 auto;
-    padding:16px 12px 32px;
-    text-align:center;
-  }
-  footer p{
-    font-size:11px;
-    color:var(--text-muted);
-  }
-  footer a{
-    color:var(--text-muted);
-  }
+  .btn-primary{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn-secondary{ color:var(--text-muted); }
+  footer{ max-width:640px; margin:0 auto; padding:16px 12px 32px; text-align:center; }
+  footer p{ font-size:11px; color:var(--text-muted); }
+  footer a{ color:var(--text-muted); }
 </style>
 </head>
 <body>
@@ -258,8 +196,7 @@
         <th class="pts">Pts</th>
       </tr>
     </thead>
-    <tbody id="standings-body">
-    </tbody>
+    <tbody id="standings-body"></tbody>
   </table>
 
   <div class="note">
@@ -320,7 +257,7 @@
       standingsData = data.standings.find(s => s.type === "TOTAL").table;
       renderStandings(standingsData);
     } catch (err) {
-      tbody.innerHTML = "<tr><td colspan='5' style='padding:16px; text-align:center; color:var(--text-muted);'>Could not load the table right now.</td></tr>";
+      tbody.innerHTML = "<tr><td colspan='8' style='padding:16px; text-align:center; color:var(--text-muted);'>Could not load the table right now.</td></tr>";
     }
   }
 
