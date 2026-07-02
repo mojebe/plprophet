@@ -51,7 +51,8 @@
   table{
     width:100%;
     table-layout:fixed;
-    border-collapse:collapse;
+    border-collapse:separate;
+    border-spacing:0;
     background:var(--surface);
     border:1px solid var(--border);
     border-radius:10px;
@@ -75,9 +76,9 @@
     padding:10px 8px;
     font-size:14px;
     text-align:right;
-    border-bottom:1px solid var(--border);
+    box-shadow: inset 0 -1px 0 var(--border);
   }
-  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:last-child td{ box-shadow:none; }
   td.team{
     text-align:left;
     font-weight:500;
@@ -89,8 +90,8 @@
   .prob-title{ color:var(--gold); }
   .prob-cl{ color:var(--accent); }
   .prob-rel{ color:var(--danger); }
+  .prob-loading{ color:var(--text-muted); }
 
-  /* Played-games and goal-difference columns: hidden on narrow screens, shown from 480px up. */
   th.mp, td.mp, th.gd, td.gd{
     display:none;
     color:var(--text-muted);
@@ -111,20 +112,59 @@
     color:var(--accent);
     line-height:1.5;
   }
-  .match{
-    background:var(--surface);
+
+  .matchday{
     border:1px solid var(--border);
     border-radius:10px;
-    padding:12px 14px;
     margin-bottom:8px;
+    overflow:hidden;
+    background:var(--surface);
+  }
+  .matchday summary{
+    padding:12px 14px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    list-style:none;
+  }
+  .matchday summary::-webkit-details-marker{ display:none; }
+  .matchday summary .arrow{ color:var(--text-muted); font-size:11px; transition:transform 0.15s; }
+  .matchday[open] summary .arrow{ transform:rotate(90deg); }
+  .matchday-round-btn{
+    font-size:12px;
+    padding:6px 10px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--accent-soft);
+    cursor:pointer;
+  }
+  .matchday-round-btn:disabled{ opacity:0.5; }
+  .matchday-body{ padding:0 10px 10px; }
+
+  .match{
+    background:var(--surface);
+    border-top:1px solid var(--border);
+    padding:12px 4px;
     display:flex;
     align-items:center;
     justify-content:space-between;
     gap:10px;
   }
+  .matchday-body .match:first-child{ border-top:none; }
   .match .date{ font-size:11px; color:var(--text-muted); width:100%; margin-bottom:6px; }
   .match .teams{ display:flex; align-items:center; justify-content:space-between; width:100%; gap:8px; }
-  .match .team-name{ font-size:14px; font-weight:500; flex:1; }
+  .match .team-name{
+    font-size:14px;
+    font-weight:500;
+    flex:1 1 0;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
   .match .team-name.away{ text-align:right; }
   .score-input{
     width:32px;
@@ -200,15 +240,12 @@
   </table>
 
   <div class="note">
-    Table is fetched live from football-data.org. Ti / CL / Re show the Prophet's estimated chance (%) of winning the title, qualifying for the Champions League, or being relegated — updated every few hours.
+    Table is fetched live from football-data.org. Ti / CL / Re show the Prophet's estimated chance (%) of winning the title, qualifying for the Champions League, or being relegated.
   </div>
 
   <div class="section-title" style="margin-top:32px;">Upcoming matches</div>
   <div id="fixtures-list"></div>
 
-  <div class="btn-row">
-    <button id="prophet-btn" class="btn btn-secondary">🔮 Let the Prophet guess all</button>
-  </div>
   <div class="btn-row">
     <button id="simulate-btn" class="btn btn-primary">Simulate table</button>
     <button id="reset-btn" class="btn btn-secondary" style="display:none;">Reset to actual table</button>
@@ -223,6 +260,7 @@
   let standingsData = [];
   let fixturesData = [];
   let probabilitiesData = {};
+  let probabilitiesLoading = false;
 
   function renderStandings(table) {
     const tbody = document.getElementById("standings-body");
@@ -234,7 +272,11 @@
       if (rank >= table.length - 2) tr.classList.add("zone-relegation");
       const gd = row.goalDifference;
       const prob = probabilitiesData[row.team.name];
-      const fmt = (n) => n === undefined ? "–" : (n < 1 && n > 0 ? "<1" : Math.round(n));
+      const fmt = (n) => {
+        if (probabilitiesLoading) return "…";
+        if (n === undefined) return "–";
+        return n < 1 && n > 0 ? "<1" : Math.round(n);
+      };
       tr.innerHTML = `
         <td class="rank">${rank}</td>
         <td class="team">${row.team.name}</td>
@@ -261,31 +303,54 @@
     }
   }
 
+  function matchRowHtml(match) {
+    const date = new Date(match.utcDate);
+    const dateStr = date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    return `
+      <div class="match">
+        <div class="date">${dateStr}</div>
+        <div class="teams">
+          <span class="team-name">${match.homeTeam.name}</span>
+          <input type="number" min="0" max="20" class="score-input" data-match="${match.id}" data-side="home">
+          <span style="color:var(--text-muted);">–</span>
+          <input type="number" min="0" max="20" class="score-input" data-match="${match.id}" data-side="away">
+          <span class="team-name away">${match.awayTeam.name}</span>
+          <button class="match-prophet-btn" data-match="${match.id}" title="Let the Prophet guess this match">🔮</button>
+        </div>
+      </div>
+    `;
+  }
+
   async function loadFixtures() {
     const list = document.getElementById("fixtures-list");
     try {
       const res = await fetch("/api/fixtures");
       const data = await res.json();
-      fixturesData = data.matches.slice(0, 10);
+      fixturesData = data.matches;
 
+      const byMatchday = {};
       fixturesData.forEach(match => {
-        const date = new Date(match.utcDate);
-        const dateStr = date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+        const md = match.matchday || "?";
+        if (!byMatchday[md]) byMatchday[md] = [];
+        byMatchday[md].push(match);
+      });
+      const matchdays = Object.keys(byMatchday).sort((a, b) => Number(a) - Number(b));
 
-        const div = document.createElement("div");
-        div.className = "match";
-        div.innerHTML = `
-          <div class="date">${dateStr}</div>
-          <div class="teams">
-            <span class="team-name">${match.homeTeam.name}</span>
-            <input type="number" min="0" max="20" class="score-input" data-match="${match.id}" data-side="home">
-            <span style="color:var(--text-muted);">–</span>
-            <input type="number" min="0" max="20" class="score-input" data-match="${match.id}" data-side="away">
-            <span class="team-name away">${match.awayTeam.name}</span>
-            <button class="match-prophet-btn" data-match="${match.id}" title="Let the Prophet guess this match">🔮</button>
+      list.innerHTML = "";
+      matchdays.forEach((md, idx) => {
+        const details = document.createElement("details");
+        details.className = "matchday";
+        if (idx === 0) details.open = true;
+        details.innerHTML = `
+          <summary>
+            <span>Matchday ${md} <span class="arrow">▸</span></span>
+            <button type="button" class="matchday-round-btn" data-matchday="${md}">🔮 Guess this round</button>
+          </summary>
+          <div class="matchday-body">
+            ${byMatchday[md].map(matchRowHtml).join("")}
           </div>
         `;
-        list.appendChild(div);
+        list.appendChild(details);
       });
     } catch (err) {
       list.innerHTML = "<p style='color:var(--text-muted); font-size:13px;'>Could not load fixtures right now.</p>";
@@ -325,31 +390,21 @@
     simulateTable();
   }
 
-  async function loadProbabilities() {
-    try {
-      const res = await fetch("/api/probabilities");
-      const data = await res.json();
-      probabilitiesData = {};
-      data.probabilities.forEach(p => { probabilitiesData[p.team] = p; });
-      renderStandings(standingsData);
-    } catch (err) {
-      // If this fails, the table just shows "–" in the probability columns.
-    }
-  }
+  async function askProphetForRound(matchday, btn) {
+    const matches = fixturesData.filter(m => String(m.matchday) === String(matchday));
+    if (matches.length === 0) return;
 
-  async function askProphet() {
-    const btn = document.getElementById("prophet-btn");
-    btn.textContent = "The Prophet is thinking...";
+    const originalText = btn.textContent;
+    btn.textContent = "Thinking…";
     btn.disabled = true;
 
     try {
-      const matches = fixturesData.map(matchContext);
-      await callProphet(matches);
+      await callProphet(matches.map(matchContext));
     } catch (err) {
       alert("The Prophet could not respond right now, please try again.");
     }
 
-    btn.textContent = "🔮 Let the Prophet guess all";
+    btn.textContent = originalText;
     btn.disabled = false;
   }
 
@@ -371,13 +426,44 @@
     btn.textContent = "🔮";
   }
 
+  async function loadProbabilities() {
+    try {
+      const res = await fetch("/api/probabilities");
+      const data = await res.json();
+      probabilitiesData = {};
+      data.probabilities.forEach(p => { probabilitiesData[p.team] = p; });
+      renderStandings(standingsData);
+    } catch (err) {
+      // If this fails, the table just shows "–" in the probability columns.
+    }
+  }
+
+  async function updateSimulatedProbabilities(simulatedTable) {
+    probabilitiesLoading = true;
+    renderStandings(simulatedTable);
+    try {
+      const res = await fetch("/api/probabilities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ table: simulatedTable })
+      });
+      const data = await res.json();
+      probabilitiesData = {};
+      data.probabilities.forEach(p => { probabilitiesData[p.team] = p; });
+    } catch (err) {
+      // Keep previous probabilities if this fails.
+    }
+    probabilitiesLoading = false;
+    renderStandings(simulatedTable);
+  }
+
   function simulateTable() {
     const simulated = JSON.parse(JSON.stringify(standingsData));
 
     fixturesData.forEach(match => {
       const homeInput = document.querySelector(`.score-input[data-match="${match.id}"][data-side="home"]`);
       const awayInput = document.querySelector(`.score-input[data-match="${match.id}"][data-side="away"]`);
-      if (!homeInput.value || !awayInput.value) return;
+      if (!homeInput || !awayInput || !homeInput.value || !awayInput.value) return;
 
       const homeScore = parseInt(homeInput.value);
       const awayScore = parseInt(awayInput.value);
@@ -397,19 +483,21 @@
     });
 
     simulated.sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference);
-    renderStandings(simulated);
-
     document.getElementById("reset-btn").style.display = "block";
+    updateSimulatedProbabilities(simulated);
   }
 
-  document.getElementById("prophet-btn").addEventListener("click", askProphet);
   document.getElementById("fixtures-list").addEventListener("click", (e) => {
-    const btn = e.target.closest(".match-prophet-btn");
-    if (btn) askProphetForMatch(btn.dataset.match);
+    const matchBtn = e.target.closest(".match-prophet-btn");
+    if (matchBtn) { askProphetForMatch(matchBtn.dataset.match); return; }
+    const roundBtn = e.target.closest(".matchday-round-btn");
+    if (roundBtn) { askProphetForRound(roundBtn.dataset.matchday, roundBtn); }
   });
   document.getElementById("simulate-btn").addEventListener("click", simulateTable);
   document.getElementById("reset-btn").addEventListener("click", () => {
+    probabilitiesData = {};
     renderStandings(standingsData);
+    loadProbabilities();
     document.getElementById("reset-btn").style.display = "none";
   });
 
