@@ -69,7 +69,7 @@
     border-bottom:1px solid var(--border);
   }
   thead th:first-child, thead th:nth-child(2){ text-align:left; }
-  th.rank, td.rank{ width:20px; text-align:left; color:var(--text-muted); font-variant-numeric:tabular-nums; }
+  th.rank, td.rank{ width:26px; padding-left:8px; padding-right:2px; text-align:left; color:var(--text-muted); font-variant-numeric:tabular-nums; }
   th.pts, td.pts{ width:32px; }
   th.prob, td.prob{ width:32px; font-size:11px; }
   tbody td{
@@ -149,12 +149,12 @@
     border-top:1px solid var(--border);
     padding:12px 4px;
     display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
+    flex-direction:column;
+    align-items:stretch;
+    gap:6px;
   }
   .matchday-body .match:first-child{ border-top:none; }
-  .match .date{ font-size:11px; color:var(--text-muted); width:100%; margin-bottom:6px; }
+  .match .date{ font-size:11px; color:var(--text-muted); }
   .match .teams{ display:flex; align-items:center; justify-content:space-between; width:100%; gap:8px; }
   .match .team-name{
     font-size:14px;
