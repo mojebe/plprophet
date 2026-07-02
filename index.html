@@ -115,16 +115,19 @@
   .prob-title{ color:var(--gold); }
   .prob-cl{ color:var(--accent); }
   .prob-rel{ color:var(--danger); }
+ tbody td.mp, tbody td.gd,
+  thead th.mp, thead th.gd{
+    display:none;
+  }
   tbody td.mp, tbody td.gd{
     color:var(--text-muted);
     font-variant-numeric:tabular-nums;
-    display:none;
   }
   @media (min-width:480px){
     tbody td.mp, tbody td.gd,
     thead th.mp, thead th.gd{ display:table-cell; }
   }
-  thead th.mp, thead th.gd{ display:none; }
+  
   tr.zone-top td.team{ border-left:3px solid var(--accent); padding-left:5px; }
   tr.zone-relegation td.team{ border-left:3px solid var(--text-muted); padding-left:5px; }
   .note{
