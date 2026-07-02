@@ -33,6 +33,9 @@ Svara ENDAST med ett JSON-objekt, ingen text runtomkring, i exakt detta format:
     });
 
     const data = await response.json();
+    if (!data.content) {
+      return res.status(500).json({ error: 'Anthropic svarade inte som förväntat', raw: data });
+    }
     const text = data.content[0].text;
     const clean = text.replace(/```json|```/g, '').trim();
     const predictions = JSON.parse(clean);
