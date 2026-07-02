@@ -33,7 +33,12 @@ Svara ENDAST med ett JSON-objekt, ingen text runtomkring, i exakt detta format:
     });
 
     const data = await response.json();
-    return res.status(200).json({ debug: data });
+    const textBlock = data.content.find(block => block.type === 'text');
+    const text = textBlock.text;
+    const clean = text.replace(/```json|```/g, '').trim();
+    const predictions = JSON.parse(clean);
+
+    res.status(200).json(predictions);
     const clean = text.replace(/```json|```/g, '').trim();
     const predictions = JSON.parse(clean);
 
