@@ -162,6 +162,25 @@
   outline:none;
   border-color:var(--accent);
 }
+  .btn-row{ display:flex; gap:8px; margin-top:16px; }
+.btn{
+  flex:1;
+  padding:12px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  font-size:14px;
+  font-weight:500;
+  cursor:pointer;
+}
+.btn-primary{
+  background:var(--accent);
+  color:#fff;
+  border-color:var(--accent);
+}
+.btn-secondary{
+  color:var(--text-muted);
+}
 </style>
 </head>
 <body>
@@ -192,46 +211,58 @@
     Tabellen hämtas live från football-data.org.
     <div class="section-title" style="margin-top:32px;">Kommande matcher</div>
 <div id="fixtures-list"></div>
+    <div class="btn-row">
+  <button id="simulate-btn" class="btn btn-primary">Simulera tabell</button>
+  <button id="reset-btn" class="btn btn-secondary" style="display:none;">Återställ till verklig tabell</button>
+</div>
   </div>
 </main>
 
 <script>
+  <script>
+  let standingsData = [];
+  let fixturesData = [];
+
+  function renderStandings(table) {
+    const tbody = document.getElementById("standings-body");
+    tbody.innerHTML = "";
+    table.forEach((row, i) => {
+      const tr = document.createElement("tr");
+      const rank = i + 1;
+      if (rank <= 4) tr.classList.add("zone-top");
+      if (rank >= table.length - 2) tr.classList.add("zone-relegation");
+      const gd = row.goalDifference;
+      tr.innerHTML = `
+        <td class="rank">${rank}</td>
+        <td class="team">${row.team.name}</td>
+        <td class="mp">${row.playedGames}</td>
+        <td class="gd">${gd > 0 ? "+" + gd : gd}</td>
+        <td class="pts">${row.points}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
   async function loadStandings() {
     const tbody = document.getElementById("standings-body");
     try {
       const res = await fetch("/api/standings");
       const data = await res.json();
-      const table = data.standings.find(s => s.type === "TOTAL").table;
-
-      table.forEach(row => {
-        const tr = document.createElement("tr");
-        const rank = row.position;
-        if (rank <= 4) tr.classList.add("zone-top");
-        if (rank >= table.length - 2) tr.classList.add("zone-relegation");
-        const gd = row.goalDifference;
-        tr.innerHTML = `
-          <td class="rank">${rank}</td>
-          <td class="team">${row.team.name}</td>
-          <td class="mp">${row.playedGames}</td>
-          <td class="gd">${gd > 0 ? "+" + gd : gd}</td>
-          <td class="pts">${row.points}</td>
-        `;
-        tbody.appendChild(tr);
-      });
+      standingsData = data.standings.find(s => s.type === "TOTAL").table;
+      renderStandings(standingsData);
     } catch (err) {
       tbody.innerHTML = "<tr><td colspan='5' style='padding:16px; text-align:center; color:var(--text-muted);'>Kunde inte hämta tabellen just nu.</td></tr>";
     }
   }
 
-  loadStandings();
   async function loadFixtures() {
     const list = document.getElementById("fixtures-list");
     try {
       const res = await fetch("/api/fixtures");
       const data = await res.json();
-      const upcoming = data.matches.slice(0, 10);
+      fixturesData = data.matches.slice(0, 10);
 
-      upcoming.forEach(match => {
+      fixturesData.forEach(match => {
         const date = new Date(match.utcDate);
         const dateStr = date.toLocaleDateString("sv-SE", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -254,7 +285,46 @@
     }
   }
 
+  function simulateTable() {
+    const simulated = JSON.parse(JSON.stringify(standingsData));
+
+    fixturesData.forEach(match => {
+      const homeInput = document.querySelector(`.score-input[data-match="${match.id}"][data-side="home"]`);
+      const awayInput = document.querySelector(`.score-input[data-match="${match.id}"][data-side="away"]`);
+      if (!homeInput.value || !awayInput.value) return;
+
+      const homeScore = parseInt(homeInput.value);
+      const awayScore = parseInt(awayInput.value);
+
+      const homeTeam = simulated.find(t => t.team.name === match.homeTeam.name);
+      const awayTeam = simulated.find(t => t.team.name === match.awayTeam.name);
+      if (!homeTeam || !awayTeam) return;
+
+      homeTeam.playedGames += 1;
+      awayTeam.playedGames += 1;
+      homeTeam.goalDifference += (homeScore - awayScore);
+      awayTeam.goalDifference += (awayScore - homeScore);
+
+      if (homeScore > awayScore) homeTeam.points += 3;
+      else if (awayScore > homeScore) awayTeam.points += 3;
+      else { homeTeam.points += 1; awayTeam.points += 1; }
+    });
+
+    simulated.sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference);
+    renderStandings(simulated);
+
+    document.getElementById("reset-btn").style.display = "block";
+  }
+
+  document.getElementById("simulate-btn").addEventListener("click", simulateTable);
+  document.getElementById("reset-btn").addEventListener("click", () => {
+    renderStandings(standingsData);
+    document.getElementById("reset-btn").style.display = "none";
+  });
+
+  loadStandings();
   loadFixtures();
+</script>
 </script>
 
 </body>
