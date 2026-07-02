@@ -168,6 +168,17 @@
     outline:none;
     border-color:var(--accent);
   }
+  .match-prophet-btn{
+    width:30px;
+    height:30px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--accent-soft);
+    font-size:14px;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .match-prophet-btn:disabled{ opacity:0.5; }
   .btn-row{ display:flex; gap:8px; margin-top:16px; }
   .btn{
     flex:1;
@@ -242,7 +253,7 @@
   <div id="fixtures-list"></div>
 
   <div class="btn-row">
-    <button id="prophet-btn" class="btn btn-secondary">🔮 Let the Prophet guess</button>
+    <button id="prophet-btn" class="btn btn-secondary">🔮 Let the Prophet guess all</button>
   </div>
   <div class="btn-row">
     <button id="simulate-btn" class="btn btn-primary">Simulate table</button>
@@ -251,7 +262,7 @@
 </main>
 
 <footer>
-  <p>Built by Jens Moberg · <a href="mailto:jenmob@gmail.com">jenmob@gmail.com</a> · with Claude</p>
+  <p>Built by Jens Moberg · <a href="mailto:jenmob@gmail.com">jenmob@gmail.com</a></p>
 </footer>
 
 <script>
@@ -311,6 +322,7 @@
             <span style="color:var(--text-muted);">–</span>
             <input type="number" min="0" max="20" class="score-input" data-match="${match.id}" data-side="away">
             <span class="team-name away">${match.awayTeam.name}</span>
+            <button class="match-prophet-btn" data-match="${match.id}" title="Let the Prophet guess this match">🔮</button>
           </div>
         `;
         list.appendChild(div);
@@ -320,48 +332,71 @@
     }
   }
 
+  function matchContext(match) {
+    const home = standingsData.find(t => t.team.name === match.homeTeam.name);
+    const away = standingsData.find(t => t.team.name === match.awayTeam.name);
+    return {
+      home: match.homeTeam.name,
+      away: match.awayTeam.name,
+      homePos: home ? home.position : "?",
+      homePts: home ? home.points : "?",
+      homeGd: home ? home.goalDifference : "?",
+      awayPos: away ? away.position : "?",
+      awayPts: away ? away.points : "?",
+      awayGd: away ? away.goalDifference : "?"
+    };
+  }
+
+  async function callProphet(matchesForPrompt) {
+    const res = await fetch("/api/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ matches: matchesForPrompt })
+    });
+    const data = await res.json();
+
+    data.predictions.forEach(pred => {
+      const match = fixturesData.find(m => m.homeTeam.name === pred.home && m.awayTeam.name === pred.away);
+      if (!match) return;
+      document.querySelector(`.score-input[data-match="${match.id}"][data-side="home"]`).value = pred.homeScore;
+      document.querySelector(`.score-input[data-match="${match.id}"][data-side="away"]`).value = pred.awayScore;
+    });
+
+    simulateTable();
+  }
+
   async function askProphet() {
     const btn = document.getElementById("prophet-btn");
     btn.textContent = "The Prophet is thinking...";
     btn.disabled = true;
 
-    const matches = fixturesData.map(match => {
-      const home = standingsData.find(t => t.team.name === match.homeTeam.name);
-      const away = standingsData.find(t => t.team.name === match.awayTeam.name);
-      return {
-        home: match.homeTeam.name,
-        away: match.awayTeam.name,
-        homePos: home ? home.position : "?",
-        homePts: home ? home.points : "?",
-        homeGd: home ? home.goalDifference : "?",
-        awayPos: away ? away.position : "?",
-        awayPts: away ? away.points : "?",
-        awayGd: away ? away.goalDifference : "?"
-      };
-    });
-
     try {
-      const res = await fetch("/api/predict", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matches })
-      });
-      const data = await res.json();
-
-      data.predictions.forEach(pred => {
-        const match = fixturesData.find(m => m.homeTeam.name === pred.home && m.awayTeam.name === pred.away);
-        if (!match) return;
-        document.querySelector(`.score-input[data-match="${match.id}"][data-side="home"]`).value = pred.homeScore;
-        document.querySelector(`.score-input[data-match="${match.id}"][data-side="away"]`).value = pred.awayScore;
-      });
-
-      simulateTable();
+      const matches = fixturesData.map(matchContext);
+      await callProphet(matches);
     } catch (err) {
       alert("The Prophet could not respond right now, please try again.");
     }
 
-    btn.textContent = "🔮 Let the Prophet guess";
+    btn.textContent = "🔮 Let the Prophet guess all";
     btn.disabled = false;
+  }
+
+  async function askProphetForMatch(matchId) {
+    const btn = document.querySelector(`.match-prophet-btn[data-match="${matchId}"]`);
+    const match = fixturesData.find(m => m.id == matchId);
+    if (!match) return;
+
+    btn.disabled = true;
+    btn.textContent = "…";
+
+    try {
+      await callProphet([matchContext(match)]);
+    } catch (err) {
+      alert("The Prophet could not respond right now, please try again.");
+    }
+
+    btn.disabled = false;
+    btn.textContent = "🔮";
   }
 
   function simulateTable() {
@@ -396,6 +431,10 @@
   }
 
   document.getElementById("prophet-btn").addEventListener("click", askProphet);
+  document.getElementById("fixtures-list").addEventListener("click", (e) => {
+    const btn = e.target.closest(".match-prophet-btn");
+    if (btn) askProphetForMatch(btn.dataset.match);
+  });
   document.getElementById("simulate-btn").addEventListener("click", simulateTable);
   document.getElementById("reset-btn").addEventListener("click", () => {
     renderStandings(standingsData);
