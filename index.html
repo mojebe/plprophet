@@ -146,42 +146,39 @@
   </table>
 
   <div class="note">
-    Det här är påhittade siffror än så länge. I nästa steg kopplar vi på riktig, aktuell Premier League-data.
+    Tabellen hämtas live från football-data.org.
   </div>
 </main>
 
 <script>
-  const placeholderData = [
-    { team: "Liverpool", mp: 34, gd: 38, pts: 78 },
-    { team: "Arsenal", mp: 34, gd: 31, pts: 75 },
-    { team: "Man City", mp: 34, gd: 29, pts: 71 },
-    { team: "Chelsea", mp: 34, gd: 18, pts: 64 },
-    { team: "Newcastle", mp: 34, gd: 15, pts: 60 },
-    { team: "Aston Villa", mp: 34, gd: 9, pts: 55 },
-    { team: "Tottenham", mp: 34, gd: 7, pts: 52 },
-    { team: "Brighton", mp: 34, gd: 3, pts: 49 },
-    { team: "Man United", mp: 34, gd: -1, pts: 47 },
-    { team: "West Ham", mp: 34, gd: -4, pts: 44 },
-    { team: "Ipswich", mp: 34, gd: -22, pts: 27 },
-    { team: "Southampton", mp: 34, gd: -30, pts: 21 },
-    { team: "Leicester", mp: 34, gd: -28, pts: 19 },
-  ];
+  async function loadStandings() {
+    const tbody = document.getElementById("standings-body");
+    try {
+      const res = await fetch("/api/standings");
+      const data = await res.json();
+      const table = data.standings.find(s => s.type === "TOTAL").table;
 
-  const tbody = document.getElementById("standings-body");
-  placeholderData.forEach((row, i) => {
-    const tr = document.createElement("tr");
-    const rank = i + 1;
-    if (rank <= 4) tr.classList.add("zone-top");
-    if (rank >= placeholderData.length - 2) tr.classList.add("zone-relegation");
-    tr.innerHTML = `
-      <td class="rank">${rank}</td>
-      <td class="team">${row.team}</td>
-      <td class="mp">${row.mp}</td>
-      <td class="gd">${row.gd > 0 ? "+" + row.gd : row.gd}</td>
-      <td class="pts">${row.pts}</td>
-    `;
-    tbody.appendChild(tr);
-  });
+      table.forEach(row => {
+        const tr = document.createElement("tr");
+        const rank = row.position;
+        if (rank <= 4) tr.classList.add("zone-top");
+        if (rank >= table.length - 2) tr.classList.add("zone-relegation");
+        const gd = row.goalDifference;
+        tr.innerHTML = `
+          <td class="rank">${rank}</td>
+          <td class="team">${row.team.name}</td>
+          <td class="mp">${row.playedGames}</td>
+          <td class="gd">${gd > 0 ? "+" + gd : gd}</td>
+          <td class="pts">${row.points}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (err) {
+      tbody.innerHTML = "<tr><td colspan='5' style='padding:16px; text-align:center; color:var(--text-muted);'>Kunde inte hämta tabellen just nu.</td></tr>";
+    }
+  }
+
+  loadStandings();
 </script>
 
 </body>
