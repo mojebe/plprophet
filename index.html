@@ -92,13 +92,18 @@
   .prob-rel{ color:var(--danger); }
   .prob-loading{ color:var(--text-muted); }
 
-  th.mp, td.mp, th.gd, td.gd{
+  th.mp, td.mp{
     display:none;
     color:var(--text-muted);
     font-variant-numeric:tabular-nums;
   }
+  th.gd, td.gd{
+    color:var(--text-muted);
+    font-variant-numeric:tabular-nums;
+    width:34px;
+  }
   @media (min-width:480px){
-    th.mp, td.mp, th.gd, td.gd{ display:table-cell; }
+    th.mp, td.mp{ display:table-cell; }
   }
 
   tr.zone-top td.team{ border-left:3px solid var(--accent); padding-left:5px; }
