@@ -130,36 +130,44 @@
     line-height:1.5;
   }
 
-  .matchday{
-    border:1px solid var(--border);
-    border-radius:10px;
-    margin-bottom:8px;
-    overflow:hidden;
-    background:var(--surface);
-  }
-  .matchday summary{
-    padding:12px 14px;
-    font-size:13px;
-    font-weight:600;
-    cursor:pointer;
+  .matchday-nav{
     display:flex;
     align-items:center;
     justify-content:space-between;
-    list-style:none;
+    margin-bottom:10px;
   }
-  .matchday summary::-webkit-details-marker{ display:none; }
-  .matchday summary .arrow{ color:var(--text-muted); font-size:11px; transition:transform 0.15s; }
-  .matchday[open] summary .arrow{ transform:rotate(90deg); }
-  .matchday-round-btn{
-    font-size:12px;
-    padding:6px 10px;
+  .nav-btn{
+    width:36px;
+    height:36px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    font-size:16px;
+    cursor:pointer;
+    color:var(--text);
+  }
+  .nav-btn:disabled{ opacity:0.3; cursor:default; }
+  .md-label{
+    font-size:14px;
+    font-weight:600;
+  }
+  .round-guess-row{ margin-bottom:10px; }
+  .round-guess-btn{
+    width:100%;
+    font-size:13px;
+    padding:8px;
     border-radius:8px;
     border:1px solid var(--border);
     background:var(--accent-soft);
     cursor:pointer;
   }
-  .matchday-round-btn:disabled{ opacity:0.5; }
-  .matchday-body{ padding:0 10px 10px; }
+  .round-guess-btn:disabled{ opacity:0.5; }
+  .fixtures-card{
+    border:1px solid var(--border);
+    border-radius:10px;
+    background:var(--surface);
+    overflow:hidden;
+  }
 
   .match{
     background:var(--surface);
@@ -171,6 +179,7 @@
     gap:6px;
   }
   .matchday-body .match:first-child{ border-top:none; }
+  .fixtures-card .match:first-child{ border-top:none; }
   .match .date{ font-size:11px; color:var(--text-muted); }
   .match .teams{ display:flex; align-items:center; justify-content:space-between; width:100%; gap:8px; }
   .match .team-name{
@@ -267,7 +276,18 @@
   </div>
 
   <div class="section-title" style="margin-top:32px;">Upcoming matches</div>
-  <div id="fixtures-list"></div>
+
+  <div class="matchday-nav">
+    <button id="md-prev" class="nav-btn" aria-label="Previous matchday">‹</button>
+    <div class="md-label">Matchday <span id="md-number">–</span></div>
+    <button id="md-next" class="nav-btn" aria-label="Next matchday">›</button>
+  </div>
+
+  <div class="round-guess-row">
+    <button id="round-guess-btn" class="round-guess-btn">🔮 Guess this round</button>
+  </div>
+
+  <div class="fixtures-card" id="fixtures-list"></div>
 
   <div class="btn-row">
     <button id="simulate-btn" class="btn btn-primary">Simulate table</button>
@@ -285,6 +305,9 @@
 <script>
   let standingsData = [];
   let fixturesData = [];
+  let matchdaysList = [];
+  let matchdayGroups = {};
+  let currentMdIndex = 0;
   let probabilitiesData = {};
   let probabilitiesLoading = false;
   let currentTable = [];
@@ -356,33 +379,33 @@
       const data = await res.json();
       fixturesData = data.matches;
 
-      const byMatchday = {};
+      matchdayGroups = {};
       fixturesData.forEach(match => {
         const md = match.matchday || "?";
-        if (!byMatchday[md]) byMatchday[md] = [];
-        byMatchday[md].push(match);
+        if (!matchdayGroups[md]) matchdayGroups[md] = [];
+        matchdayGroups[md].push(match);
       });
-      const matchdays = Object.keys(byMatchday).sort((a, b) => Number(a) - Number(b));
-
-      list.innerHTML = "";
-      matchdays.forEach((md, idx) => {
-        const details = document.createElement("details");
-        details.className = "matchday";
-        if (idx === 0) details.open = true;
-        details.innerHTML = `
-          <summary>
-            <span>Matchday ${md} <span class="arrow">▸</span></span>
-            <button type="button" class="matchday-round-btn" data-matchday="${md}">🔮 Guess this round</button>
-          </summary>
-          <div class="matchday-body">
-            ${byMatchday[md].map(matchRowHtml).join("")}
-          </div>
-        `;
-        list.appendChild(details);
-      });
+      matchdaysList = Object.keys(matchdayGroups).sort((a, b) => Number(a) - Number(b));
+      currentMdIndex = 0;
+      renderCurrentMatchday();
     } catch (err) {
-      list.innerHTML = "<p style='color:var(--text-muted); font-size:13px;'>Could not load fixtures right now.</p>";
+      list.innerHTML = "<p style='color:var(--text-muted); font-size:13px; padding:14px;'>Could not load fixtures right now.</p>";
     }
+  }
+
+  function renderCurrentMatchday() {
+    const list = document.getElementById("fixtures-list");
+    const md = matchdaysList[currentMdIndex];
+    document.getElementById("md-number").textContent = md ?? "–";
+    document.getElementById("md-prev").disabled = currentMdIndex <= 0;
+    document.getElementById("md-next").disabled = currentMdIndex >= matchdaysList.length - 1;
+    document.getElementById("round-guess-btn").dataset.matchday = md ?? "";
+
+    if (!md) {
+      list.innerHTML = "<p style='color:var(--text-muted); font-size:13px; padding:14px;'>No upcoming matches found.</p>";
+      return;
+    }
+    list.innerHTML = matchdayGroups[md].map(matchRowHtml).join("");
   }
 
   function matchContext(match) {
@@ -508,7 +531,8 @@
     setTimeout(() => hint.remove(), 4000);
   }
 
-  async function askProphetForRound(matchday, btn) {
+  async function askProphetForRound(btn) {
+    const matchday = btn.dataset.matchday;
     const matches = fixturesData.filter(m => String(m.matchday) === String(matchday));
     if (matches.length === 0) return;
 
@@ -517,7 +541,7 @@
     btn.disabled = true;
 
     const usedAI = await callProphet(matches);
-    if (!usedAI) showFallbackHint(btn.closest(".matchday").querySelector("summary"));
+    if (!usedAI) showFallbackHint(btn);
 
     btn.textContent = originalText;
     btn.disabled = false;
@@ -612,9 +636,14 @@
 
   document.getElementById("fixtures-list").addEventListener("click", (e) => {
     const matchBtn = e.target.closest(".match-prophet-btn");
-    if (matchBtn) { askProphetForMatch(matchBtn.dataset.match); return; }
-    const roundBtn = e.target.closest(".matchday-round-btn");
-    if (roundBtn) { askProphetForRound(roundBtn.dataset.matchday, roundBtn); }
+    if (matchBtn) askProphetForMatch(matchBtn.dataset.match);
+  });
+  document.getElementById("round-guess-btn").addEventListener("click", (e) => askProphetForRound(e.currentTarget));
+  document.getElementById("md-prev").addEventListener("click", () => {
+    if (currentMdIndex > 0) { currentMdIndex--; renderCurrentMatchday(); }
+  });
+  document.getElementById("md-next").addEventListener("click", () => {
+    if (currentMdIndex < matchdaysList.length - 1) { currentMdIndex++; renderCurrentMatchday(); }
   });
   document.getElementById("simulate-btn").addEventListener("click", simulateTable);
   document.getElementById("odds-btn").addEventListener("click", recalcProbabilities);
